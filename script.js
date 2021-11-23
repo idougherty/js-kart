@@ -2,7 +2,8 @@ const util = require('./server/modules/util');
 const ClientHandler = require('./server/modules/clientHandler');
 const Camera = require('./server/modules/camera');
 
-const socket = new WebSocket("ws://localhost:8181");
+var HOST = location.origin.replace(/^http/, 'ws')
+const socket = new WebSocket(HOST);
 let game = new ClientHandler(); 
 
 let canvas = document.getElementById("paper");
