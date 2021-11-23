@@ -8,7 +8,8 @@
   "main": "script.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "browserify script.js > bundle.js"
+    "build": "browserify script.js > bundle.js",
+    "start": "node server/index.js"
   },
   "author": "Ian Dougherty",
   "license": "ISC",
