@@ -4,7 +4,7 @@ const WebSocket = require("ws");
 
 let game = new ServerHandler();
 
-wss = new WebSocket.Server({ port: 8181 });
+wss = new WebSocket.Server({ port: process.env.PORT || 8181 });
 
 wss.on("connection", socket => {
     processConnection(socket);
