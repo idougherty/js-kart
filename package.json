@@ -1,0 +1,20 @@
+{
+  "dependencies": {
+    "avsc": "^5.7.3",
+    "ws": "^8.2.3"
+  },
+  "name": "js-kart",
+  "version": "1.0.0",
+  "main": "script.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "browserify script.js > bundle.js"
+  },
+  "author": "Ian Dougherty",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "browserify": "^17.0.0",
+    "watchify": "^4.0.0"
+  }
+}
