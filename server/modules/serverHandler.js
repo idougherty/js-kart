@@ -228,34 +228,27 @@ class ServerHandler {
         this.numPlayers--;
     }
 
-    createPacket(event, data = null) {
-        let packet = {
-            data: data,
-        };
-
+    addPacket(packets, event, data = null) {
         switch(event) {
-            case 0:
+            case 'id':
+                packets.id = data;
                 break;
-            case 1:
-                packet.data = {
+            case 'dynamic':
+                packets.dynamic = {
                     cars: this.cars,
                 };
                 break;
-            case 2:
-                packet.data = {
+            case 'static':
+                packets.static = {
                     scene: this.scene,
                     walls: this.walls,
                 };
                 break;
             default:
         }
-
-        return packet;
     }
 
-    lobbyUpdate() {
-        let packets = {};
-
+    lobbyUpdate(packets) {
         let ready = true;
     
         for(const car of Object.values(this.cars)) {
@@ -264,20 +257,18 @@ class ServerHandler {
             }
         }
 
-        packets[1] = this.createPacket(1);
+        this.addPacket(packets, 'dynamic');
     
         if(ready && this.numPlayers > 0) {
             this.reset();
             this.initRace();
-            packets[2] = this.createPacket(2);
+            packets[2] = this.addPacket(packets, 'static');
         }
 
         return packets;
     }
 
-    raceUpdate() {
-        let packets = {};
-            
+    raceUpdate(packets) {
         let ready = true;
         for(const car of Object.values(this.cars)) {
             if(!car.ready) {
@@ -289,12 +280,12 @@ class ServerHandler {
             }
         }
 
-        packets[1] = this.createPacket(1);
+        this.addPacket(packets, 'dynamic');
 
         if(this.numPlayers == 0 || ready) {
             this.reset();
             this.initLobby();
-            packets[2] = this.createPacket(2);
+            this.addPacket(packets, 'static');
         }
 
         return packets;
@@ -302,14 +293,18 @@ class ServerHandler {
 
     update(dt) {
         let bundle = {
-            packets: {},
+            packets: {
+                id: null,
+                dynamic: null,
+                static: null,
+            },
             tick: this.tick, 
         };
 
         if(this.scene == "lobby") {
-            bundle.packets = this.lobbyUpdate(dt);
+            this.lobbyUpdate(bundle.packets);
         } else {
-            bundle.packets = this.raceUpdate(dt);
+            this.raceUpdate(bundle.packets);
         }
 
         return bundle;

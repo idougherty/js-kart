@@ -1,8 +1,12 @@
 const util = require('./server/modules/util');
 const ClientHandler = require('./server/modules/clientHandler');
 const Camera = require('./server/modules/camera');
+const avsc = require('./server/modules/serialize.js');
 
-var HOST = location.origin.replace(/^http/, 'ws')
+// var HOST = location.origin.replace(/^http/, 'ws')
+
+// HOST = "ws://js-kart.herokuapp.com/";
+const HOST = "ws://localhost:8181"; 
 const socket = new WebSocket(HOST);
 let game = new ClientHandler(); 
 
@@ -20,16 +24,17 @@ socket.onopen = event => {
     waitForID();
 }
 
-socket.onmessage = event => {
-    let data = util.deserialize(event.data);
-
-    // if message is a ping request answer with a pong
-    if(data.ping) {
-        game.latency = (game.id+1) * 10;//data.latency;
-        socket.send(util.serialize(data));
-        return;
-    }
+socket.onmessage = async event => {
+    const buffer = await event.data.arrayBuffer();
+    let data = avsc.decode(buffer);
     
+    // TODO integrate pings with normal message frames
+    // if(data.ping) {
+    //     game.latency = data.latency;
+    //     socket.send(avsc.encode(data));
+    //     return;
+    // }
+
     pushMessage(data);
 
     if(messages.length > 128) {
@@ -79,30 +84,30 @@ function processTick(tick) {
     while(messages.length > 0 && messages[0].tick < tick) {
         const message = popMessage(0);
 
-        if(message.packets[1]) {
+        if(message.packets.dynamic) {
             const buffered = util.getBuffer(game.stateBuffer, message.tick);
             if(buffered) {
-                if(game.compareDynamicStates(buffered, message.packets[1].data)) {
+                if(game.compareDynamicStates(buffered, message.packets.dynamic)) {
                     rewind = game.tick;
                     auth_state = null;
                 } else {
                     rewind = message.tick;
-                    auth_state = message.packets[1];
+                    auth_state = message.packets.dynamic;
                 }
             } else {
-                auth_state = message.packets[1];
+                auth_state = message.packets.dynamic;
             }
         }
 
-        if(message.packets[0])
-            game.processPacket(message.packets[0], 0);
+        if(message.packets.id != null)
+            game.processPacket(message.packets.id, 'id');
         
-        if(message.packets[2])
-            game.processPacket(message.packets[2], 2);
+        if(message.packets.static)
+            game.processPacket(message.packets.static, 'static');
     }
 
     if(auth_state)
-        game.processPacket(auth_state, 1);
+        game.processPacket(auth_state, 'dynamic');
 
     return rewind;
 }
@@ -125,17 +130,21 @@ function handleInputs() {
 function sendInputs(inputs) {
     let bundle = {
         packets: {
-            0: inputs, 
+            inputs: inputs, 
         },
         tick: game.tick,
     }
 
-    const message = util.serialize(bundle);
+    const message = avsc.encode(bundle);
     socket.send(message);
 }
 
 function waitForID() {  
     game.tick = Math.floor(game.getTick());
+
+    // if(Math.random() < .01) {
+    //     console.log(messages)
+    // }
 
     processTick(game.tick);
 
@@ -147,7 +156,7 @@ function waitForID() {
     window.requestAnimationFrame(waitForID);
 }
 
-let delay = 0;
+// let delay = 0;
 function gameLoop() {
     const dt = .016;
     const curTick = Math.floor(game.getTick());
@@ -155,9 +164,6 @@ function gameLoop() {
     
     if(curTick - game.tick > 128)
         game.tick = curTick - 128;
-
-    if(messages.length > 0)
-        delay = game.tick - messages[messages.length - 1].tick;
 
     game.updateViewID();
 
@@ -182,8 +188,8 @@ function gameLoop() {
 
     let rewind = processTick(game.tick);
 
-    if(rewind < game.tick)
-        console.log("Rewind!");
+    // if(rewind < game.tick)
+    //     console.log("Rewind!");
 
     while(rewind < game.tick) {
         if(!game.isSpectator)

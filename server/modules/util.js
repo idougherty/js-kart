@@ -36,15 +36,6 @@ function interval (duration, fn) {
     }
 }
 
-// TODO: implement avro serialization
-this.serialize = (obj) => {
-    return JSON.stringify(obj);
-}
-
-this.deserialize = (buffer) => {
-    return JSON.parse(buffer);
-}
-
 this.min_missing_id = (clients, min = 0, offset = 0) => {
     let arr = Array.from(clients).sort((a, b) => a.id - b.id);
 

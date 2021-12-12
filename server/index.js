@@ -1,3 +1,4 @@
+const avsc = require('./modules/serialize')
 const util = require('./modules/util');
 const ServerHandler = require('./modules/serverHandler');
 const WebSocket = require("ws");
@@ -43,15 +44,15 @@ function updateLatency(socket, timestamp) {
     socket.pingBuffer.forEach(val => socket.latency += val / socket.pingBuffer.length);
 }
 
-function processMessage(buffer) {
-    let message = util.deserialize(buffer);
+async function processMessage(buffer) {
+    let message = await avsc.decode(buffer);
 
     if(message.ping) {
         updateLatency(this, message.ping);
         return;
     }
 
-    if(message.packets[0])
+    if(message.packets.inputs)
         util.setBuffer(this.inputBuffer, message.tick, message);
 }
 
@@ -83,7 +84,7 @@ function processClose() {
 }
 
 function broadcast(data) {
-    let buffer = util.serialize(data);
+    let buffer = avsc.encode(data);
 
     for(const client of wss.clients) {
         client.send(buffer);
@@ -107,11 +108,11 @@ function addPlayer(socket, id) {
         tick: game.tick,
     };
 
-    bundle.packets[0] = game.createPacket(0, id);
-    bundle.packets[1] = game.createPacket(1, id);
-    bundle.packets[2] = game.createPacket(2, id);
+    game.addPacket(bundle.packets, 'id', id);
+    game.addPacket(bundle.packets, 'dynamic');
+    game.addPacket(bundle.packets, 'static');
 
-    socket.send(util.serialize(bundle));
+    socket.send(avsc.encode(bundle));
 }
 
 function pingClient(socket) {
@@ -120,7 +121,7 @@ function pingClient(socket) {
         latency: socket.latency,
     };
 
-    socket.send(util.serialize(data));
+    // socket.send(avsc.encode(data));
 }
 
 let pingTimer = 0;
@@ -134,7 +135,7 @@ var timer = new util.interval(16, () => {
             let message = util.getBuffer(socket.inputBuffer, game.tick);
 
             if(message && message.tick == game.tick) {
-                handleInputs(socket, message.packets[0]);
+                handleInputs(socket, message.packets.inputs);
             }
         }
 

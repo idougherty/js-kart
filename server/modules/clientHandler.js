@@ -5,6 +5,13 @@ const Vec2D = PhysX.Vec2D;
 const PhysObject = PhysX.PhysObject;
 const PhysEnv = PhysX.PhysEnv;
 
+const wall_material = {
+    density: Infinity,
+    restitution: .5,
+    sFriction: .24,
+    dFriction: .16,
+};
+
 class ClientHandler {
     constructor() {
         this.tick;
@@ -43,16 +50,19 @@ class ClientHandler {
         return util.getTime() / 16 + this.latency + this.delay;
     }
 
-    processPacket(packet, id) {
-        switch(id) {
-            case 0:
-                this.id = packet.data;
+    processPacket(packet, event) {
+        if(event != 'dynamic')
+            console.log(packet)
+
+        switch(event) {
+            case 'id':
+                this.id = packet;
                 this.updateViewID();
                 break;
-            case 1:
+            case 'dynamic':
                 for(let i = 0; i < util.MAX_PLAYERS; i++) {
                     let A = this.state.cars[i];
-                    let B = packet.data.cars[i];
+                    let B = packet.cars[i];
 
                     if(!A && !B)
                         continue;
@@ -73,17 +83,17 @@ class ClientHandler {
                 }
 
                 break;
-            case 2:
-                const changeScene = this.state.scene != packet.data.scene;    
+            case 'static':
+                const changeScene = this.state.scene != packet.scene;    
 
-                if(this.state.scene == "lobby" && packet.data.scene == "race") {
+                if(this.state.scene == "lobby" && packet.scene == "race") {
                     this.freezeTime = 5;
                 }
 
-                this.state.scene = packet.data.scene;
+                this.state.scene = packet.scene;
                 this.state.walls = [];
                 
-                for(const border of packet.data.walls) {
+                for(const border of packet.walls) {
                     let new_border = [];
 
                     for(const ref of border) {
@@ -94,8 +104,7 @@ class ClientHandler {
                             points.push(new Vec2D(point.x, point.y));
                         }
 
-                        ref.material.density = Infinity;
-                        let wall = new PhysObject(pos, points, ref.material);
+                        let wall = new PhysObject(pos, points, wall_material);
                         new_border.push(wall);
                     }
 
@@ -130,10 +139,13 @@ class ClientHandler {
     resetEnv() {
         this.env.clearObjects();
 
-        for(const car of Object.values(this.state.cars)) {
-            this.env.addObject(car);
-        }
-        
+        // for(const car of Object.values(this.state.cars)) {
+        //     this.env.addObject(car);
+        // }
+
+        if(!this.isSpectator && this.state.cars[this.id])
+            this.env.addObject(this.state.cars[this.id]);
+
         for(const border of this.state.walls) {
             for(const wall of border) {
                 this.env.addObject(wall);
