@@ -50,6 +50,7 @@ async function processMessage(buffer) {
     if(message.packets.ping) {
         updateLatency(this, message.packets.ping.timestamp);
     } else if(message.packets.inputs) {
+        console.log(message.packets.inputs);
         util.setBuffer(this.inputBuffer, message.tick, message);
     }
 }
@@ -109,8 +110,8 @@ function addPlayer(socket, id) {
     socket.car = null;
     socket.inputBuffer = [];
 
-    socket.latency = 5;
-    socket.pingBuffer = [5];
+    socket.latency = 100;
+    socket.pingBuffer = [100];
 
     if(id < util.MAX_PLAYERS) {
         socket.car = game.createCar(id);
@@ -138,7 +139,7 @@ var timer = new util.interval(16, () => {
         for(const socket of wss.clients) {
             let message = util.getBuffer(socket.inputBuffer, game.tick);
 
-            console.log("inputs", message)
+            // console.log("inputs", message);
 
             if(message && message.tick == game.tick) {
                 handleInputs(socket, message.packets.inputs);

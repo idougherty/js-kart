@@ -17,7 +17,7 @@ class ClientHandler {
         this.tick;
         this.confirmedTick;
         this.delay = 1;     // built in delay to help smooth lag spikes
-        this.latency = 20;
+        this.latency = 100;
 
         this.state = {
             scene: null,
