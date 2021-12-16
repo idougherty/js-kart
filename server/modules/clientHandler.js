@@ -17,7 +17,7 @@ class ClientHandler {
         this.tick;
         this.confirmedTick;
         this.delay = 1;     // built in delay to help smooth lag spikes
-        this.latency = 5;
+        this.latency = 20;
 
         this.state = {
             scene: null,
@@ -27,7 +27,6 @@ class ClientHandler {
 
         this.env = new PhysEnv(1);
 
-        this.dynamicFields = ["cars"]; //list of data to predict
         this.stateBuffer = [];
         this.inputBuffer = [];
         
@@ -47,24 +46,42 @@ class ClientHandler {
     }
 
     getTick() {
-        return util.getTime() / 16 + this.latency + this.delay;
+        return (util.getTime() + this.latency) / 16 + this.delay;
     }
 
     processPacket(packet, event) {
-        if(event != 'dynamic')
-            console.log(packet)
-
         switch(event) {
             case 'id':
                 this.id = packet;
                 this.updateViewID();
+                break;
+            case 'rewind':
+                let A = this.state.cars[this.id];
+                let B = packet;
+
+                if(!A && !B)
+                    return;
+                
+                if(A && !B) {
+                    this.env.removeObject(A);
+                    delete this.state.cars[this.id];
+
+                    return;
+                }
+                
+                if(!A && B) {
+                    this.state.cars[this.id] = new Car(B.pos, B.hue);
+                    this.env.addObject(this.state.cars[this.id]);
+                }
+                
+                this.updateCar(this.state.cars[this.id], B);
                 break;
             case 'dynamic':
                 for(let i = 0; i < util.MAX_PLAYERS; i++) {
                     let A = this.state.cars[i];
                     let B = packet.cars[i];
 
-                    if(!A && !B)
+                    if(!A && !B || i == this.id)
                         continue;
                     
                     if(A && !B) {
@@ -128,7 +145,7 @@ class ClientHandler {
         car.ready = ref.ready;
         car.lap = ref.lap;
 
-        // car.inputs = ref.inputs;
+        car.inputs = ref.inputs;
 
         for(let i = 0; i < car.points.length; i++) {
             car.points[i] = Vec2D.rotate({x: 0, y: 0}, car.shape[i], car.angle);
@@ -198,16 +215,16 @@ class ClientHandler {
         let last = buffer.cars;
 
         for(let i = 0; i < util.MAX_PLAYERS; i++) {
-            if(!curr[i])  
+            let a = curr[i];
+            let b = last[i];
+
+            if(!a)  
                 continue;
 
-            if(!last[i]) {
+            if(!b) {
                 lerp[i] = a;
                 continue;
             }
-
-            let a = curr[i];
-            let b = last[i];
             
             let obj = util.copyObj(a);
             
@@ -230,12 +247,32 @@ class ClientHandler {
     copyDynamicState(state) {
         let newState = {};
 
-        for(const field of this.dynamicFields) {
-            newState[field] = {};
-            
-            for(const [idx, obj] of Object.entries(state[field])) {
-                newState[field][idx] = util.copyObj(obj);
-            }
+        newState.cars = {};
+        
+        for(const [idx, obj] of Object.entries(state.cars)) {
+            newState.cars[idx] = {
+                angle:  obj.angle,
+                rotVel: obj.rotVel,
+                lap:    obj.lap,
+                ready:  obj.ready,
+                pos: {
+                    x:  obj.pos.x,
+                    y:  obj.pos.y,
+                },
+                vel: {
+                    x:  obj.vel.x,
+                    y:  obj.vel.y,
+                },
+                inputs: {
+                    up: obj.inputs.up,
+                    down: obj.inputs.down,
+                    left: obj.inputs.left,
+                    right: obj.inputs.right,
+                    shift: obj.inputs.shift,
+                    enter: obj.inputs.enter,
+                }
+            };
+            // util.copyObj(obj);
         }
 
         return newState;
@@ -245,47 +282,81 @@ class ClientHandler {
         const t_tolerance = 1;
         const a_tolerance = .1;
 
-        for(const field of this.dynamicFields) {
-            const A_LIST = Object.entries(A_STATE[field]);
-            const B_LIST = Object.entries(B_STATE[field]);
+        const A_LIST = Object.entries(A_STATE.cars);
+        const B_LIST = Object.entries(B_STATE.cars);
 
-            if(A_LIST.length != B_LIST.length)
+        if(A_LIST.length != B_LIST.length)
+            return false;
+
+        for(let i = 0; i < A_LIST.length; i++) {
+            if(A_LIST[i][0] != B_LIST[i][0])
                 return false;
 
-            for(let i = 0; i < A_LIST.length; i++) {
-                if(A_LIST[i][0] != B_LIST[i][0])
-                    return false;
+            const A = A_LIST[i][1];
+            const B = B_LIST[i][1];
 
-                const A = A_LIST[i][1];
-                const B = B_LIST[i][1];
+            const tx = A.pos.x - B.pos.x;
+            const ty = A.pos.y - B.pos.y;
+            const tdif2 = tx * tx + ty * ty;
 
-                const tx = A.pos.x - B.pos.x;
-                const ty = A.pos.y - B.pos.y;
-                const tdif2 = tx * tx + ty * ty;
+            const vx = A.vel.x - B.vel.x;
+            const vy = A.vel.y - B.vel.y;
+            const vdif2 = vx * vx + vy * vy;
 
-                const vx = A.vel.x - B.vel.x;
-                const vy = A.vel.y - B.vel.y;
-                const vdif2 = vx * vx + vy * vy;
-
-                if(tdif2 > t_tolerance * t_tolerance)
-                    return false;
-                    
-                if(vdif2 > t_tolerance * t_tolerance)
-                    return false;
+            if(tdif2 > t_tolerance * t_tolerance)
+                return false;
                 
-                if(Math.abs(A.rotVel - B.rotVel) > a_tolerance)
-                    return false;
+            if(vdif2 > t_tolerance * t_tolerance)
+                return false;
+            
+            if(Math.abs(A.rotVel - B.rotVel) > a_tolerance)
+                return false;
 
-                if(Math.abs(A.angle - B.angle) > a_tolerance)
-                    return false;
+            if(Math.abs(A.angle - B.angle) > a_tolerance)
+                return false;
 
-                if(A.ready != B.ready)
-                    return false;
+            if(A.ready != B.ready)
+                return false;
 
-                if(A.lap != B.lap)
-                    return false;
-            }
+            if(A.lap != B.lap)
+                return false;
         }
+
+        return true;
+    }
+
+    comparePlayerStates(A, B) {
+        const t_tolerance = 1;
+        const a_tolerance = .1;
+
+        if(!A || !B)
+            return false;
+
+        const tx = A.pos.x - B.pos.x;
+        const ty = A.pos.y - B.pos.y;
+        const tdif2 = tx * tx + ty * ty;
+
+        const vx = A.vel.x - B.vel.x;
+        const vy = A.vel.y - B.vel.y;
+        const vdif2 = vx * vx + vy * vy;
+
+        if(tdif2 > t_tolerance * t_tolerance)
+            return false;
+            
+        if(vdif2 > t_tolerance * t_tolerance)
+            return false;
+        
+        if(Math.abs(A.rotVel - B.rotVel) > a_tolerance)
+            return false;
+
+        if(Math.abs(A.angle - B.angle) > a_tolerance)
+            return false;
+
+        if(A.ready != B.ready)
+            return false;
+
+        if(A.lap != B.lap)
+            return false;
 
         return true;
     }

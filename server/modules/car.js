@@ -4,7 +4,7 @@ const PhysObject = PhysX.PhysObject;
 const PhysEnv = PhysX.PhysEnv;
 
 class Car extends PhysObject {
-    constructor(pos, hue) {
+    constructor(pos, hue, material = null) {
         const pts = [new Vec2D(0, 1),
                      new Vec2D(0, 19),
                      new Vec2D(12, 22),
@@ -12,12 +12,14 @@ class Car extends PhysObject {
                      new Vec2D(40, 1),
                      new Vec2D(12, -2),];
 
-        let material = {
-            density: 2.5,
-            restitution: .35,
-            sFriction: .06,
-            dFriction: .04,
-        };
+        if(!material) {
+            material = {
+                density: 2.5,
+                restitution: .35,
+                sFriction: .06,
+                dFriction: .04,
+            };
+        }
 
         super(pos, pts, material);
         this.moi *= 10;

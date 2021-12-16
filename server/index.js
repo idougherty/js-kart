@@ -31,7 +31,7 @@ function processConnection(socket) {
 }
 
 function updateLatency(socket, timestamp) {
-    const BUFFER_SIZE = 5;
+    const BUFFER_SIZE = 3;
     let latency = (util.getTime() - timestamp) / 2;
 
     socket.pingBuffer.push(latency);
@@ -47,13 +47,11 @@ function updateLatency(socket, timestamp) {
 async function processMessage(buffer) {
     let message = await avsc.decode(buffer);
 
-    if(message.ping) {
-        updateLatency(this, message.ping);
-        return;
-    }
-
-    if(message.packets.inputs)
+    if(message.packets.ping) {
+        updateLatency(this, message.packets.ping.timestamp);
+    } else if(message.packets.inputs) {
         util.setBuffer(this.inputBuffer, message.tick, message);
+    }
 }
 
 function handleInputs(socket, inputs) {
@@ -83,10 +81,24 @@ function processClose() {
     }
 }
 
-function broadcast(data) {
-    let buffer = avsc.encode(data);
+function broadcast(data, pingFlag) {
+    let buffer;
+
+    if(pingFlag) {
+        data.packets.ping = {
+            timestamp: util.getTime(),
+            latency: null,
+        };
+    } else {
+        buffer = avsc.encode(data);  
+    }
 
     for(const client of wss.clients) {
+        if(pingFlag) {
+            data.packets.ping.latency = client.latency;
+            buffer = avsc.encode(data);
+        }
+
         client.send(buffer);
     }
 }
@@ -115,15 +127,6 @@ function addPlayer(socket, id) {
     socket.send(avsc.encode(bundle));
 }
 
-function pingClient(socket) {
-    let data = {
-        ping: util.getTime(),
-        latency: socket.latency,
-    };
-
-    // socket.send(avsc.encode(data));
-}
-
 let pingTimer = 0;
 var timer = new util.interval(16, () => { 
     const curTick = Math.floor(util.getTime() / 16);
@@ -140,21 +143,18 @@ var timer = new util.interval(16, () => {
         }
 
         let bundle = game.update(dt);
-        broadcast(bundle);
+
+        pingTimer += dt;
+        const pingFlag = pingTimer > 1;
+
+        if(pingTimer > 1)
+            pingTimer = 0;
+
+        broadcast(bundle, pingFlag);
         
         game.simulate(dt);
 
         game.tick++;
-    }
-
-    pingTimer += loopTime;
-
-    if(pingTimer > 1000) {
-        pingTimer = 0;
-
-        for(const client of wss.clients) {
-            pingClient(client);
-        }
     }
 });
 

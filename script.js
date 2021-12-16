@@ -4,10 +4,11 @@ const Camera = require('./server/modules/camera');
 const avsc = require('./server/modules/serialize.js');
 
 // var HOST = location.origin.replace(/^http/, 'ws')
-
-// HOST = "ws://js-kart.herokuapp.com/";
+// const HOST = "ws://js-kart.herokuapp.com/";
 const HOST = "ws://localhost:8181"; 
-const socket = new WebSocket(HOST);
+
+let socket = new WebSocket(HOST);
+
 let game = new ClientHandler(); 
 
 let canvas = document.getElementById("paper");
@@ -16,6 +17,10 @@ let camera = new Camera(canvas);
 // TODO: create circular queue for messages
 let messageTypes = {};
 let messages = [];
+
+socket.onerror = error => {
+    camera.drawError(error);
+}
 
 socket.onopen = event => {
     console.log("Client connected!");
@@ -28,12 +33,11 @@ socket.onmessage = async event => {
     const buffer = await event.data.arrayBuffer();
     let data = avsc.decode(buffer);
     
-    // TODO integrate pings with normal message frames
-    // if(data.ping) {
-    //     game.latency = data.latency;
-    //     socket.send(avsc.encode(data));
-    //     return;
-    // }
+    if(data.packets.ping) {
+        game.latency = data.packets.ping.latency;
+        socket.send(avsc.encode(data));
+        return;
+    }
 
     pushMessage(data);
 
@@ -84,37 +88,43 @@ function processTick(tick) {
     while(messages.length > 0 && messages[0].tick < tick) {
         const message = popMessage(0);
 
-        if(message.packets.dynamic) {
-            const buffered = util.getBuffer(game.stateBuffer, message.tick);
-            if(buffered) {
-                if(game.compareDynamicStates(buffered, message.packets.dynamic)) {
-                    rewind = game.tick;
-                    auth_state = null;
-                } else {
-                    rewind = message.tick;
-                    auth_state = message.packets.dynamic;
-                }
-            } else {
-                auth_state = message.packets.dynamic;
-            }
-        }
-
         if(message.packets.id != null)
             game.processPacket(message.packets.id, 'id');
         
         if(message.packets.static)
             game.processPacket(message.packets.static, 'static');
+
+        if(message.packets.dynamic) {
+            game.processPacket(message.packets.dynamic, 'dynamic');
+
+            const buffered = util.getBuffer(game.stateBuffer, message.tick);
+            if(buffered) {
+                if(game.comparePlayerStates(buffered.cars[game.id], message.packets.dynamic.cars[game.id])) {
+                    rewind = game.tick;
+                    auth_state = null;
+                } else {
+                    rewind = message.tick;
+                    auth_state = message.packets.dynamic.cars[game.id];
+                }
+            } else {
+                auth_state = message.packets.dynamic.cars[game.id];
+            }
+        }
     }
 
-    if(auth_state)
-        game.processPacket(auth_state, 'dynamic');
+    if(auth_state) {
+        game.processPacket(auth_state, 'rewind');
+    }
 
     return rewind;
 }
 
 function handleInputs() {
-    const buffered = util.getBuffer(game.inputBuffer, game.tick - 1);
-        
+    let buffered = util.getBuffer(game.stateBuffer, game.tick - 1)
+    
+    if(buffered)
+        buffered = buffered.cars[game.id].inputs;
+
     for(const key in game.inputs) {
         if(!buffered || game.inputs[key] != buffered[key]) {
             sendInputs(game.inputs);
@@ -142,10 +152,6 @@ function sendInputs(inputs) {
 function waitForID() {  
     game.tick = Math.floor(game.getTick());
 
-    // if(Math.random() < .01) {
-    //     console.log(messages)
-    // }
-
     processTick(game.tick);
 
     if(game.id != null) {
@@ -156,7 +162,10 @@ function waitForID() {
     window.requestAnimationFrame(waitForID);
 }
 
-// let delay = 0;
+// TODO handle weird collision rubberbanding
+// probably comes from having outdated versions of other players
+// in the state buffer
+
 function gameLoop() {
     const dt = .016;
     const curTick = Math.floor(game.getTick());
@@ -175,8 +184,7 @@ function gameLoop() {
             game.state.cars[game.id].inputs = game.inputs;
         
         util.setBuffer(game.stateBuffer, game.tick, game.copyDynamicState(game.state));
-        util.setBuffer(game.inputBuffer, game.tick, util.copyObj(game.inputs));
-
+        
         game.update(dt);
         
         if(game.state.scene == "race") {
@@ -187,13 +195,12 @@ function gameLoop() {
     }
 
     let rewind = processTick(game.tick);
-
-    // if(rewind < game.tick)
-    //     console.log("Rewind!");
+    // console.log(game.tick - rewind);
 
     while(rewind < game.tick) {
-        if(!game.isSpectator)
-            game.state.cars[game.id].inputs = util.getBuffer(game.inputBuffer, rewind);
+        for(const [idx, cars] of Object.entries(game.state.cars)) {
+            cars.inputs = util.getBuffer(game.stateBuffer, rewind).cars[idx].inputs;
+        }
         
         util.setBuffer(game.stateBuffer, rewind, game.copyDynamicState(game.state));
 

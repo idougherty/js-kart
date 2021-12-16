@@ -25309,10 +25309,11 @@ const Camera = require('./server/modules/camera');
 const avsc = require('./server/modules/serialize.js');
 
 // var HOST = location.origin.replace(/^http/, 'ws')
-
-// HOST = "ws://js-kart.herokuapp.com/";
+// const HOST = "ws://js-kart.herokuapp.com/";
 const HOST = "ws://localhost:8181"; 
-const socket = new WebSocket(HOST);
+
+let socket = new WebSocket(HOST);
+
 let game = new ClientHandler(); 
 
 let canvas = document.getElementById("paper");
@@ -25321,6 +25322,10 @@ let camera = new Camera(canvas);
 // TODO: create circular queue for messages
 let messageTypes = {};
 let messages = [];
+
+socket.onerror = error => {
+    camera.drawError(error);
+}
 
 socket.onopen = event => {
     console.log("Client connected!");
@@ -25333,12 +25338,11 @@ socket.onmessage = async event => {
     const buffer = await event.data.arrayBuffer();
     let data = avsc.decode(buffer);
     
-    // TODO integrate pings with normal message frames
-    // if(data.ping) {
-    //     game.latency = data.latency;
-    //     socket.send(avsc.encode(data));
-    //     return;
-    // }
+    if(data.packets.ping) {
+        game.latency = data.packets.ping.latency;
+        socket.send(avsc.encode(data));
+        return;
+    }
 
     pushMessage(data);
 
@@ -25389,37 +25393,43 @@ function processTick(tick) {
     while(messages.length > 0 && messages[0].tick < tick) {
         const message = popMessage(0);
 
-        if(message.packets.dynamic) {
-            const buffered = util.getBuffer(game.stateBuffer, message.tick);
-            if(buffered) {
-                if(game.compareDynamicStates(buffered, message.packets.dynamic)) {
-                    rewind = game.tick;
-                    auth_state = null;
-                } else {
-                    rewind = message.tick;
-                    auth_state = message.packets.dynamic;
-                }
-            } else {
-                auth_state = message.packets.dynamic;
-            }
-        }
-
         if(message.packets.id != null)
             game.processPacket(message.packets.id, 'id');
         
         if(message.packets.static)
             game.processPacket(message.packets.static, 'static');
+
+        if(message.packets.dynamic) {
+            game.processPacket(message.packets.dynamic, 'dynamic');
+
+            const buffered = util.getBuffer(game.stateBuffer, message.tick);
+            if(buffered) {
+                if(game.comparePlayerStates(buffered.cars[game.id], message.packets.dynamic.cars[game.id])) {
+                    rewind = game.tick;
+                    auth_state = null;
+                } else {
+                    rewind = message.tick;
+                    auth_state = message.packets.dynamic.cars[game.id];
+                }
+            } else {
+                auth_state = message.packets.dynamic.cars[game.id];
+            }
+        }
     }
 
-    if(auth_state)
-        game.processPacket(auth_state, 'dynamic');
+    if(auth_state) {
+        game.processPacket(auth_state, 'rewind');
+    }
 
     return rewind;
 }
 
 function handleInputs() {
-    const buffered = util.getBuffer(game.inputBuffer, game.tick - 1);
-        
+    let buffered = util.getBuffer(game.stateBuffer, game.tick - 1)
+    
+    if(buffered)
+        buffered = buffered.cars[game.id].inputs;
+
     for(const key in game.inputs) {
         if(!buffered || game.inputs[key] != buffered[key]) {
             sendInputs(game.inputs);
@@ -25447,10 +25457,6 @@ function sendInputs(inputs) {
 function waitForID() {  
     game.tick = Math.floor(game.getTick());
 
-    // if(Math.random() < .01) {
-    //     console.log(messages)
-    // }
-
     processTick(game.tick);
 
     if(game.id != null) {
@@ -25461,7 +25467,10 @@ function waitForID() {
     window.requestAnimationFrame(waitForID);
 }
 
-// let delay = 0;
+// TODO handle weird collision rubberbanding
+// probably comes from having outdated versions of other players
+// in the state buffer
+
 function gameLoop() {
     const dt = .016;
     const curTick = Math.floor(game.getTick());
@@ -25480,8 +25489,7 @@ function gameLoop() {
             game.state.cars[game.id].inputs = game.inputs;
         
         util.setBuffer(game.stateBuffer, game.tick, game.copyDynamicState(game.state));
-        util.setBuffer(game.inputBuffer, game.tick, util.copyObj(game.inputs));
-
+        
         game.update(dt);
         
         if(game.state.scene == "race") {
@@ -25492,13 +25500,12 @@ function gameLoop() {
     }
 
     let rewind = processTick(game.tick);
-
-    // if(rewind < game.tick)
-    //     console.log("Rewind!");
+    // console.log(game.tick - rewind);
 
     while(rewind < game.tick) {
-        if(!game.isSpectator)
-            game.state.cars[game.id].inputs = util.getBuffer(game.inputBuffer, rewind);
+        for(const [idx, cars] of Object.entries(game.state.cars)) {
+            cars.inputs = util.getBuffer(game.stateBuffer, rewind).cars[idx].inputs;
+        }
         
         util.setBuffer(game.stateBuffer, rewind, game.copyDynamicState(game.state));
 
@@ -25627,6 +25634,23 @@ class Camera {
         this.x += (this.target.x - this.x) * followFactor;
         this.y += (this.target.y - this.y) * followFactor;
         this.scale += (this.target.scale - this.scale) * followFactor * .2;
+    }
+
+    drawError(error) {
+        this.ctx.globalCompositeOperation = "source-over";
+        this.ctx.fillStyle = "#121212";
+        
+        this.ctx.fillRect(-this.canvas.width * .5, -this.canvas.height * .5, this.canvas.width, this.canvas.height);
+
+        this.ctx.globalCompositeOperation = "lighter";
+        this.ctx.shadowBlur = 4;
+
+        this.ctx.fillStyle = `hsl(0, 30%, 60%)`;
+        this.ctx.shadowColor = `hsl(0, 30%, 50%)`;
+        this.ctx.font = "bold 24px Share Tech Mono";
+
+        this.ctx.fillText('Could not connect to:', 0, -20);
+        this.ctx.fillText(error.target.url, 0, 20);
     }
 
     drawWalls(walls) {
@@ -25819,7 +25843,7 @@ const PhysObject = PhysX.PhysObject;
 const PhysEnv = PhysX.PhysEnv;
 
 class Car extends PhysObject {
-    constructor(pos, hue) {
+    constructor(pos, hue, material = null) {
         const pts = [new Vec2D(0, 1),
                      new Vec2D(0, 19),
                      new Vec2D(12, 22),
@@ -25827,12 +25851,14 @@ class Car extends PhysObject {
                      new Vec2D(40, 1),
                      new Vec2D(12, -2),];
 
-        let material = {
-            density: 2.5,
-            restitution: .35,
-            sFriction: .06,
-            dFriction: .04,
-        };
+        if(!material) {
+            material = {
+                density: 2.5,
+                restitution: .35,
+                sFriction: .06,
+                dFriction: .04,
+            };
+        }
 
         super(pos, pts, material);
         this.moi *= 10;
@@ -25925,7 +25951,7 @@ class ClientHandler {
         this.tick;
         this.confirmedTick;
         this.delay = 1;     // built in delay to help smooth lag spikes
-        this.latency = 5;
+        this.latency = 20;
 
         this.state = {
             scene: null,
@@ -25935,7 +25961,6 @@ class ClientHandler {
 
         this.env = new PhysEnv(1);
 
-        this.dynamicFields = ["cars"]; //list of data to predict
         this.stateBuffer = [];
         this.inputBuffer = [];
         
@@ -25955,24 +25980,42 @@ class ClientHandler {
     }
 
     getTick() {
-        return util.getTime() / 16 + this.latency + this.delay;
+        return (util.getTime() + this.latency) / 16 + this.delay;
     }
 
     processPacket(packet, event) {
-        if(event != 'dynamic')
-            console.log(packet)
-
         switch(event) {
             case 'id':
                 this.id = packet;
                 this.updateViewID();
+                break;
+            case 'rewind':
+                let A = this.state.cars[this.id];
+                let B = packet;
+
+                if(!A && !B)
+                    return;
+                
+                if(A && !B) {
+                    this.env.removeObject(A);
+                    delete this.state.cars[this.id];
+
+                    return;
+                }
+                
+                if(!A && B) {
+                    this.state.cars[this.id] = new Car(B.pos, B.hue);
+                    this.env.addObject(this.state.cars[this.id]);
+                }
+                
+                this.updateCar(this.state.cars[this.id], B);
                 break;
             case 'dynamic':
                 for(let i = 0; i < util.MAX_PLAYERS; i++) {
                     let A = this.state.cars[i];
                     let B = packet.cars[i];
 
-                    if(!A && !B)
+                    if(!A && !B || i == this.id)
                         continue;
                     
                     if(A && !B) {
@@ -26036,7 +26079,7 @@ class ClientHandler {
         car.ready = ref.ready;
         car.lap = ref.lap;
 
-        // car.inputs = ref.inputs;
+        car.inputs = ref.inputs;
 
         for(let i = 0; i < car.points.length; i++) {
             car.points[i] = Vec2D.rotate({x: 0, y: 0}, car.shape[i], car.angle);
@@ -26106,16 +26149,16 @@ class ClientHandler {
         let last = buffer.cars;
 
         for(let i = 0; i < util.MAX_PLAYERS; i++) {
-            if(!curr[i])  
+            let a = curr[i];
+            let b = last[i];
+
+            if(!a)  
                 continue;
 
-            if(!last[i]) {
+            if(!b) {
                 lerp[i] = a;
                 continue;
             }
-
-            let a = curr[i];
-            let b = last[i];
             
             let obj = util.copyObj(a);
             
@@ -26138,12 +26181,32 @@ class ClientHandler {
     copyDynamicState(state) {
         let newState = {};
 
-        for(const field of this.dynamicFields) {
-            newState[field] = {};
-            
-            for(const [idx, obj] of Object.entries(state[field])) {
-                newState[field][idx] = util.copyObj(obj);
-            }
+        newState.cars = {};
+        
+        for(const [idx, obj] of Object.entries(state.cars)) {
+            newState.cars[idx] = {
+                angle:  obj.angle,
+                rotVel: obj.rotVel,
+                lap:    obj.lap,
+                ready:  obj.ready,
+                pos: {
+                    x:  obj.pos.x,
+                    y:  obj.pos.y,
+                },
+                vel: {
+                    x:  obj.vel.x,
+                    y:  obj.vel.y,
+                },
+                inputs: {
+                    up: obj.inputs.up,
+                    down: obj.inputs.down,
+                    left: obj.inputs.left,
+                    right: obj.inputs.right,
+                    shift: obj.inputs.shift,
+                    enter: obj.inputs.enter,
+                }
+            };
+            // util.copyObj(obj);
         }
 
         return newState;
@@ -26153,47 +26216,81 @@ class ClientHandler {
         const t_tolerance = 1;
         const a_tolerance = .1;
 
-        for(const field of this.dynamicFields) {
-            const A_LIST = Object.entries(A_STATE[field]);
-            const B_LIST = Object.entries(B_STATE[field]);
+        const A_LIST = Object.entries(A_STATE.cars);
+        const B_LIST = Object.entries(B_STATE.cars);
 
-            if(A_LIST.length != B_LIST.length)
+        if(A_LIST.length != B_LIST.length)
+            return false;
+
+        for(let i = 0; i < A_LIST.length; i++) {
+            if(A_LIST[i][0] != B_LIST[i][0])
                 return false;
 
-            for(let i = 0; i < A_LIST.length; i++) {
-                if(A_LIST[i][0] != B_LIST[i][0])
-                    return false;
+            const A = A_LIST[i][1];
+            const B = B_LIST[i][1];
 
-                const A = A_LIST[i][1];
-                const B = B_LIST[i][1];
+            const tx = A.pos.x - B.pos.x;
+            const ty = A.pos.y - B.pos.y;
+            const tdif2 = tx * tx + ty * ty;
 
-                const tx = A.pos.x - B.pos.x;
-                const ty = A.pos.y - B.pos.y;
-                const tdif2 = tx * tx + ty * ty;
+            const vx = A.vel.x - B.vel.x;
+            const vy = A.vel.y - B.vel.y;
+            const vdif2 = vx * vx + vy * vy;
 
-                const vx = A.vel.x - B.vel.x;
-                const vy = A.vel.y - B.vel.y;
-                const vdif2 = vx * vx + vy * vy;
-
-                if(tdif2 > t_tolerance * t_tolerance)
-                    return false;
-                    
-                if(vdif2 > t_tolerance * t_tolerance)
-                    return false;
+            if(tdif2 > t_tolerance * t_tolerance)
+                return false;
                 
-                if(Math.abs(A.rotVel - B.rotVel) > a_tolerance)
-                    return false;
+            if(vdif2 > t_tolerance * t_tolerance)
+                return false;
+            
+            if(Math.abs(A.rotVel - B.rotVel) > a_tolerance)
+                return false;
 
-                if(Math.abs(A.angle - B.angle) > a_tolerance)
-                    return false;
+            if(Math.abs(A.angle - B.angle) > a_tolerance)
+                return false;
 
-                if(A.ready != B.ready)
-                    return false;
+            if(A.ready != B.ready)
+                return false;
 
-                if(A.lap != B.lap)
-                    return false;
-            }
+            if(A.lap != B.lap)
+                return false;
         }
+
+        return true;
+    }
+
+    comparePlayerStates(A, B) {
+        const t_tolerance = 1;
+        const a_tolerance = .1;
+
+        if(!A || !B)
+            return false;
+
+        const tx = A.pos.x - B.pos.x;
+        const ty = A.pos.y - B.pos.y;
+        const tdif2 = tx * tx + ty * ty;
+
+        const vx = A.vel.x - B.vel.x;
+        const vy = A.vel.y - B.vel.y;
+        const vdif2 = vx * vx + vy * vy;
+
+        if(tdif2 > t_tolerance * t_tolerance)
+            return false;
+            
+        if(vdif2 > t_tolerance * t_tolerance)
+            return false;
+        
+        if(Math.abs(A.rotVel - B.rotVel) > a_tolerance)
+            return false;
+
+        if(Math.abs(A.angle - B.angle) > a_tolerance)
+            return false;
+
+        if(A.ready != B.ready)
+            return false;
+
+        if(A.lap != B.lap)
+            return false;
 
         return true;
     }
@@ -27007,6 +27104,20 @@ let car_schema = {
                     ]
                 }
             },
+            {
+                name: 'inputs',
+                type: ['null', {
+                    type: 'record',
+                    fields: [
+                        { name: 'left',  type: 'boolean' },
+                        { name: 'right', type: 'boolean' },
+                        { name: 'up',    type: 'boolean' },
+                        { name: 'down',  type: 'boolean' },
+                        { name: 'shift', type: 'boolean' },
+                        { name: 'enter', type: 'boolean' },
+                    ]
+                }]
+            }
         ]
     }]
 };
@@ -27023,7 +27134,7 @@ for(let id = 0; id < util.MAX_PLAYERS; id++) {
 const BUNDLE_TYPE = avro.Type.forSchema({
     type: 'record',
     fields: [
-        { name: 'tick', type: ['long', 'null'] },
+        { name: 'tick', type: 'long' },
         {
             name: 'packets', 
             type: {
@@ -27113,7 +27224,18 @@ const BUNDLE_TYPE = avro.Type.forSchema({
                                 { name: 'enter', type: 'boolean' },
                             ]
                         }]
-                    }
+                    },
+                    { 
+                        name: 'ping', 
+                        default: null, 
+                        type: ['null', {
+                            type: 'record',
+                            fields: [
+                                { name: 'timestamp', type: ['long'] },
+                                { name: 'latency', type: ['double'] },
+                            ]
+                        }]
+                    },
                 ]
             }
         },

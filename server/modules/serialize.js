@@ -33,6 +33,20 @@ let car_schema = {
                     ]
                 }
             },
+            {
+                name: 'inputs',
+                type: ['null', {
+                    type: 'record',
+                    fields: [
+                        { name: 'left',  type: 'boolean' },
+                        { name: 'right', type: 'boolean' },
+                        { name: 'up',    type: 'boolean' },
+                        { name: 'down',  type: 'boolean' },
+                        { name: 'shift', type: 'boolean' },
+                        { name: 'enter', type: 'boolean' },
+                    ]
+                }]
+            }
         ]
     }]
 };
@@ -49,7 +63,7 @@ for(let id = 0; id < util.MAX_PLAYERS; id++) {
 const BUNDLE_TYPE = avro.Type.forSchema({
     type: 'record',
     fields: [
-        { name: 'tick', type: ['long', 'null'] },
+        { name: 'tick', type: 'long' },
         {
             name: 'packets', 
             type: {
@@ -139,7 +153,18 @@ const BUNDLE_TYPE = avro.Type.forSchema({
                                 { name: 'enter', type: 'boolean' },
                             ]
                         }]
-                    }
+                    },
+                    { 
+                        name: 'ping', 
+                        default: null, 
+                        type: ['null', {
+                            type: 'record',
+                            fields: [
+                                { name: 'timestamp', type: ['long'] },
+                                { name: 'latency', type: ['double'] },
+                            ]
+                        }]
+                    },
                 ]
             }
         },

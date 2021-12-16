@@ -52,6 +52,23 @@ class Camera {
         this.scale += (this.target.scale - this.scale) * followFactor * .2;
     }
 
+    drawError(error) {
+        this.ctx.globalCompositeOperation = "source-over";
+        this.ctx.fillStyle = "#121212";
+        
+        this.ctx.fillRect(-this.canvas.width * .5, -this.canvas.height * .5, this.canvas.width, this.canvas.height);
+
+        this.ctx.globalCompositeOperation = "lighter";
+        this.ctx.shadowBlur = 4;
+
+        this.ctx.fillStyle = `hsl(0, 30%, 60%)`;
+        this.ctx.shadowColor = `hsl(0, 30%, 50%)`;
+        this.ctx.font = "bold 24px Share Tech Mono";
+
+        this.ctx.fillText('Could not connect to:', 0, -20);
+        this.ctx.fillText(error.target.url, 0, 20);
+    }
+
     drawWalls(walls) {
         let hue = 0;
         this.ctx.lineWidth = 6;
