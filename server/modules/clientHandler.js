@@ -16,7 +16,7 @@ class ClientHandler {
     constructor() {
         this.tick;
         this.confirmedTick;
-        this.delay = 1;     // built in delay to help smooth lag spikes
+        this.delay = 3;     // built in delay to help smooth lag spikes
         this.latency = 100;
 
         this.state = {
