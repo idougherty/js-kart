@@ -50,7 +50,7 @@ async function processMessage(buffer) {
     if(message.packets.ping) {
         updateLatency(this, message.packets.ping.timestamp);
     } else if(message.packets.inputs) {
-        console.log(message.tick);
+        console.log(game.tick - message.tick);
         util.setBuffer(this.inputBuffer, message.tick, message);
     }
 }
