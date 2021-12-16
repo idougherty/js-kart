@@ -46,9 +46,6 @@ function updateLatency(socket, timestamp) {
 
 async function processMessage(buffer) {
     let message = await avsc.decode(buffer);
-
-    if(Math.random() < .01)
-        console.log(message);
     
     if(message.packets.ping) {
         updateLatency(this, message.packets.ping.timestamp);
@@ -60,6 +57,7 @@ async function processMessage(buffer) {
 function handleInputs(socket, inputs) {
     if(socket.id < util.MAX_PLAYERS && !(game.scene == "race" && socket.car.ready)) {
         socket.car.inputs = inputs;
+        console.log("inputs given!!")
     }
 
     if(game.scene == "lobby" && inputs.enter) {
@@ -156,6 +154,7 @@ var timer = new util.interval(16, () => {
         broadcast(bundle, pingFlag);
         
         game.simulate(dt);
+        console.log("simulating!")
 
         game.tick++;
     }
