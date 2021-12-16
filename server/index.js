@@ -57,8 +57,8 @@ async function processMessage(buffer) {
 function handleInputs(socket, inputs) {
     if(socket.id < util.MAX_PLAYERS && !(game.scene == "race" && socket.car.ready)) {
         socket.car.inputs = inputs;
-        console.log("inputs given!!")
     }
+    console.log(socket.id);
 
     if(game.scene == "lobby" && inputs.enter) {
         if(socket.id < util.MAX_PLAYERS) {
@@ -131,12 +131,14 @@ function addPlayer(socket, id) {
 let pingTimer = 0;
 var timer = new util.interval(16, () => { 
     const curTick = Math.floor(util.getTime() / 16);
-    const loopTime = util.getTime() - timer.baseline;
+    // const loopTime = util.getTime() - timer.baseline;
     const dt = .016;
 
     while(game.tick < curTick) {
         for(const socket of wss.clients) {
             let message = util.getBuffer(socket.inputBuffer, game.tick);
+
+            console.log("inputs", message)
 
             if(message && message.tick == game.tick) {
                 handleInputs(socket, message.packets.inputs);
