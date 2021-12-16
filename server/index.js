@@ -47,6 +47,9 @@ function updateLatency(socket, timestamp) {
 async function processMessage(buffer) {
     let message = await avsc.decode(buffer);
 
+    if(Math.random() < .01)
+        console.log(message);
+    
     if(message.packets.ping) {
         updateLatency(this, message.packets.ping.timestamp);
     } else if(message.packets.inputs) {

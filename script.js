@@ -4,8 +4,8 @@ const Camera = require('./server/modules/camera');
 const avsc = require('./server/modules/serialize.js');
 
 // var HOST = location.origin.replace(/^http/, 'ws')
-// const HOST = "ws://js-kart.herokuapp.com/";
-const HOST = "ws://localhost:8181"; 
+const HOST = "ws://js-kart.herokuapp.com/";
+// const HOST = "ws://localhost:8181"; 
 
 let socket = new WebSocket(HOST);
 
@@ -32,7 +32,7 @@ socket.onopen = event => {
 socket.onmessage = async event => {
     const buffer = await event.data.arrayBuffer();
     let data = avsc.decode(buffer);
-    
+
     if(data.packets.ping) {
         game.latency = data.packets.ping.latency;
         socket.send(avsc.encode(data));
