@@ -154,7 +154,6 @@ var timer = new util.interval(16, () => {
         broadcast(bundle, pingFlag);
         
         game.simulate(dt);
-        console.log("simulating!")
 
         game.tick++;
     }
