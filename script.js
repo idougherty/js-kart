@@ -35,6 +35,7 @@ socket.onmessage = async event => {
 
     if(data.packets.ping) {
         game.latency = data.packets.ping.latency;
+        console.log(game.latency);
         socket.send(avsc.encode(data));
         return;
     }
