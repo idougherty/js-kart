@@ -25309,8 +25309,8 @@ const Camera = require('./server/modules/camera');
 const avsc = require('./server/modules/serialize.js');
 
 // var HOST = location.origin.replace(/^http/, 'ws')
-const HOST = "ws://js-kart.herokuapp.com/";
-// const HOST = "ws://localhost:8181";
+// const HOST = "ws://js-kart.herokuapp.com/";
+const HOST = "ws://localhost:8181";
 
 let socket = new WebSocket(HOST);
 
@@ -25951,7 +25951,7 @@ class ClientHandler {
     constructor() {
         this.tick;
         this.confirmedTick;
-        this.delay = 3;     // built in delay to help smooth lag spikes
+        this.delay = 48;     // built in delay to help smooth lag spikes
         this.latency = 100;
 
         this.state = {
