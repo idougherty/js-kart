@@ -32,7 +32,7 @@ function processConnection(socket) {
 
 function updateLatency(socket, timestamp) {
     const BUFFER_SIZE = 3;
-    let latency = (util.getTime() - timestamp) / 2;
+    let latency = (util.getTime() - timestamp);
 
     socket.pingBuffer.push(latency);
 
