@@ -25310,7 +25310,7 @@ const avsc = require('./server/modules/serialize.js');
 
 // var HOST = location.origin.replace(/^http/, 'ws')
 // const HOST = "ws://js-kart.herokuapp.com/";
-const HOST = "ws://localhost:8181"; 
+const HOST = "ws://localhost:8181";
 
 let socket = new WebSocket(HOST);
 
@@ -25339,7 +25339,7 @@ socket.onmessage = async event => {
     let data = avsc.decode(buffer);
 
     if(data.packets.ping) {
-        game.latency = data.packets.ping.latency * 30;
+        game.latency = data.packets.ping.latency;
         console.log(game.latency);
         socket.send(avsc.encode(data));
         return;
@@ -26211,53 +26211,6 @@ class ClientHandler {
         }
 
         return newState;
-    }
-
-    compareDynamicStates(A_STATE, B_STATE) {
-        const t_tolerance = 1;
-        const a_tolerance = .1;
-
-        const A_LIST = Object.entries(A_STATE.cars);
-        const B_LIST = Object.entries(B_STATE.cars);
-
-        if(A_LIST.length != B_LIST.length)
-            return false;
-
-        for(let i = 0; i < A_LIST.length; i++) {
-            if(A_LIST[i][0] != B_LIST[i][0])
-                return false;
-
-            const A = A_LIST[i][1];
-            const B = B_LIST[i][1];
-
-            const tx = A.pos.x - B.pos.x;
-            const ty = A.pos.y - B.pos.y;
-            const tdif2 = tx * tx + ty * ty;
-
-            const vx = A.vel.x - B.vel.x;
-            const vy = A.vel.y - B.vel.y;
-            const vdif2 = vx * vx + vy * vy;
-
-            if(tdif2 > t_tolerance * t_tolerance)
-                return false;
-                
-            if(vdif2 > t_tolerance * t_tolerance)
-                return false;
-            
-            if(Math.abs(A.rotVel - B.rotVel) > a_tolerance)
-                return false;
-
-            if(Math.abs(A.angle - B.angle) > a_tolerance)
-                return false;
-
-            if(A.ready != B.ready)
-                return false;
-
-            if(A.lap != B.lap)
-                return false;
-        }
-
-        return true;
     }
 
     comparePlayerStates(A, B) {
