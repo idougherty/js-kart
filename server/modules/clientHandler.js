@@ -16,7 +16,7 @@ class ClientHandler {
     constructor() {
         this.tick;
         this.confirmedTick;
-        this.delay = 48;     // built in delay to help smooth lag spikes
+        this.delay = 32;     // built in delay to help smooth lag spikes
         this.latency = 100;
 
         this.state = {
@@ -46,7 +46,7 @@ class ClientHandler {
     }
 
     getTick() {
-        return (util.getTime() + this.latency) / 16 + this.delay;
+        return (util.getTime() + this.latency * 2) / 16 + this.delay;
     }
 
     processPacket(packet, event) {

@@ -25308,9 +25308,8 @@ const ClientHandler = require('./server/modules/clientHandler');
 const Camera = require('./server/modules/camera');
 const avsc = require('./server/modules/serialize.js');
 
-// var HOST = location.origin.replace(/^http/, 'ws')
-// const HOST = "ws://js-kart.herokuapp.com/";
-const HOST = "ws://localhost:8181";
+const HOST = "wss://js-kart.herokuapp.com/";
+// const HOST = "ws://localhost:8181";
 
 let socket = new WebSocket(HOST);
 
@@ -25951,7 +25950,7 @@ class ClientHandler {
     constructor() {
         this.tick;
         this.confirmedTick;
-        this.delay = 48;     // built in delay to help smooth lag spikes
+        this.delay = 32;     // built in delay to help smooth lag spikes
         this.latency = 100;
 
         this.state = {
@@ -25981,7 +25980,7 @@ class ClientHandler {
     }
 
     getTick() {
-        return (util.getTime() + this.latency) / 16 + this.delay;
+        return (util.getTime() + this.latency * 2) / 16 + this.delay;
     }
 
     processPacket(packet, event) {

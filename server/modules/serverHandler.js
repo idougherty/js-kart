@@ -172,7 +172,7 @@ class ServerHandler {
                         B.lastCheckpoint = 0;
                         B.lap++;
 
-                        if(B.lap >= 1) {
+                        if(B.lap >= 3) {
                             B.lap = -1;
                             B.ready = true;
                         }
