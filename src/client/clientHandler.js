@@ -16,8 +16,8 @@ class ClientHandler {
     constructor() {
         this.tick;
         this.confirmedTick;
-        this.delay = 1;     // built in delay to help smooth lag spikes
-        this.latency = 100;
+        this.delay = 16;     // built in delay to help smooth lag spikes
+        this.latency = 40;
 
         this.state = {
             scene: null,
@@ -46,7 +46,7 @@ class ClientHandler {
     }
 
     getTick() {
-        return (util.getTime() + this.latency) / 16 + this.delay;
+        return (util.getTime() + this.latency + this.delay) / 16;
     }
 
     processPacket(packet, event) {
@@ -54,6 +54,8 @@ class ClientHandler {
             case 'id':
                 this.id = packet;
                 this.updateViewID();
+
+                console.log("Client ID: " + this.id);
                 break;
             case 'rewind':
                 let A = this.state.cars[this.id];
@@ -154,14 +156,15 @@ class ClientHandler {
     }
 
     resetEnv() {
+        console.log("RESET ENV");
         this.env.clearObjects();
 
-        // for(const car of Object.values(this.state.cars)) {
-        //     this.env.addObject(car);
-        // }
+        for(const car of Object.values(this.state.cars)) {
+            this.env.addObject(car);
+        }
 
-        if(!this.isSpectator && this.state.cars[this.id])
-            this.env.addObject(this.state.cars[this.id]);
+        // if(!this.isSpectator && this.state.cars[this.id])
+        //     this.env.addObject(this.state.cars[this.id]);
 
         for(const border of this.state.walls) {
             for(const wall of border) {
@@ -272,7 +275,6 @@ class ClientHandler {
                     enter: obj.inputs.enter,
                 }
             };
-            // util.copyObj(obj);
         }
 
         return newState;

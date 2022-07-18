@@ -36,7 +36,6 @@ socket.onmessage = async event => {
 
     if(data.packets.ping) {
         game.latency = data.packets.ping.latency;
-        console.log(game.latency);
         socket.send(avsc.encode(data));
         return;
     }
@@ -100,7 +99,7 @@ function processTick(tick) {
             game.processPacket(message.packets.dynamic, 'dynamic');
 
             const buffered = util.getBuffer(game.stateBuffer, message.tick);
-            if(buffered) {
+            if(buffered && !game.isSpectator) {
                 if(game.comparePlayerStates(buffered.cars[game.id], message.packets.dynamic.cars[game.id])) {
                     rewind = game.tick;
                     auth_state = null;
@@ -122,13 +121,15 @@ function processTick(tick) {
 }
 
 function handleInputs() {
-    let buffered = util.getBuffer(game.stateBuffer, game.tick - 1)
+    let bufferFrame = util.getBuffer(game.stateBuffer, game.tick - 1);
+    let hasBuffer = !game.isSpectator && bufferFrame;
+    let bufferedInputs = null;
     
-    if(buffered)
-        buffered = buffered.cars[game.id].inputs;
+    if(hasBuffer)
+        bufferedInputs = bufferFrame.cars[game.id].inputs;
 
     for(const key in game.inputs) {
-        if(!buffered || game.inputs[key] != buffered[key]) {
+        if(!hasBuffer || game.inputs[key] != bufferedInputs[key]) {
             sendInputs(game.inputs);
 
             if(game.isSpectator)
@@ -164,10 +165,6 @@ function waitForID() {
     window.requestAnimationFrame(waitForID);
 }
 
-// TODO handle weird collision rubberbanding
-// probably comes from having outdated versions of other players
-// in the state buffer
-
 function gameLoop() {
     const dt = .016;
     const curTick = Math.floor(game.getTick());
@@ -197,11 +194,16 @@ function gameLoop() {
     }
 
     let rewind = processTick(game.tick);
-    // console.log(game.tick - rewind);
+
+    if(rewind != game.tick)
+        console.log(game.tick - rewind);
 
     while(rewind < game.tick) {
         for(const [idx, cars] of Object.entries(game.state.cars)) {
-            cars.inputs = util.getBuffer(game.stateBuffer, rewind).cars[idx].inputs;
+            let bufferedCar = util.getBuffer(game.stateBuffer, rewind).cars[idx];
+            
+            if(bufferedCar)
+                cars.inputs = bufferedCar.inputs;
         }
         
         util.setBuffer(game.stateBuffer, rewind, game.copyDynamicState(game.state));
@@ -213,6 +215,7 @@ function gameLoop() {
 
     let lerp = game.lerpState(alpha);
     camera.draw(lerp, game.viewID, game.isSpectator, game.freezeTime);
+    camera.drawPing(Math.floor(game.latency * 16));
 
     window.requestAnimationFrame(gameLoop);
 }

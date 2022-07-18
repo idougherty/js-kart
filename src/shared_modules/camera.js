@@ -1,3 +1,4 @@
+let util = require('./util');
 let PhysX = require("./physx");
 let Vec2D = PhysX.Vec2D;
 
@@ -33,8 +34,6 @@ class Camera {
         };
 
         this.ctx.lineCap = "round";
-        this.ctx.textAlign = "center";
-        this.ctx.textBaseline = "middle";
         this.ctx.translate(canvas.width * .5, this.canvas.height * .5);
     }
 
@@ -72,6 +71,7 @@ class Camera {
     drawWalls(walls) {
         let hue = 0;
         this.ctx.lineWidth = 6;
+        this.ctx.shadowBlur = 4;
 
         for(const wall of walls)  {
             this.ctx.shadowColor = `hsl(${hue}, 100%, 50%)`;
@@ -143,49 +143,110 @@ class Camera {
         this.ctx.stroke();
     }
 
-    drawPlaces(state, _id) {
-        for(const [id,  car] of Object.entries(state.cars)) {
+    drawPlaces(state) {
+        for(const car of Object.values(state.cars)) {
             if(car.lap == -1)
                 continue;
 
-            this.ctx.fillStyle = `hsl(${car.hue}, 100%, 90%)`;
-            this.ctx.shadowColor = `hsl(${car.hue}, 100%, 50%)`;
+            this.ctx.fillStyle = `hsl(${car.hue}, 100%, 80%)`;
+            this.ctx.textAlign = "center";
+            this.ctx.textBaseline = "middle";
             this.ctx.font = "bold 24px Share Tech Mono";
+            this.ctx.shadowBlur = 0;
 
             this.ctx.fillText(num_to_place(car.lap), car.pos.x, car.pos.y - 30);
         }
     }
 
+    drawCenteredMessage(message, hue = 0) {
+        this.ctx.fillStyle = `hsl(${hue}, 100%, 80%)`;
+        this.ctx.font = "bold 24px Share Tech Mono";
+        this.ctx.textAlign = "center";
+        this.ctx.textBaseline = "middle";
+        this.ctx.shadowBlur = 0;
+
+        this.ctx.fillText(message, 0, this.canvas.height * -.4);
+    }
+
+    drawLap(car) {
+        this.ctx.fillStyle = `hsl(0, 0%, 50%)`;
+        this.ctx.font = "bold 30px Share Tech Mono";
+        this.ctx.textAlign = "right";
+        this.ctx.textBaseline = "bottom";
+        this.ctx.shadowBlur = 0;
+
+        const text = "LAP: "+ car.lap + "/" + util.NUM_LAPS;
+        this.ctx.fillText(text, this.canvas.width / 2 - 10, this.canvas.height / 2 - 10);
+    }
+
+    drawSpectatorMessage(id) {
+        this.ctx.fillStyle = `hsl(0, 0%, 50%)`;
+        this.ctx.font = "bold 30px Share Tech Mono";
+        this.ctx.textAlign = "left";
+        this.ctx.textBaseline = "top";
+        this.ctx.shadowBlur = 0;
+
+        const text = `SPECTATING: CAR ${parseInt(id) + 1}`;
+        this.ctx.fillText(text, -this.canvas.width / 2 + 10, -this.canvas.height / 2 + 10);
+    }
+
+    drawPing(ping) {
+        this.ctx.fillStyle = `hsl(0, 0%, 50%)`;
+        this.ctx.font = "bold 30px Share Tech Mono";
+        this.ctx.textAlign = "left";
+        this.ctx.textBaseline = "bottom";
+        this.ctx.shadowBlur = 0;
+
+        const text = `PING: ` + ping;
+        this.ctx.fillText(text, -this.canvas.width / 2 + 10, this.canvas.height / 2 - 10);
+    }
+
     drawLobby(state, id, isSpectator) {
+        const car = state.cars[id];
+
         for(const wall of state.walls)
             this.drawWalls(wall);
 
-        this.drawPlaces(state, id)
+        this.drawPlaces(state)
 
         for(const car of Object.values(state.cars)) {
             const rd = car.ready ? 1 : .3;
             this.ctx.shadowColor = `hsl(${car.hue}, ${100 * rd}%, ${50 * rd}%)`;
             const color = `hsl(${car.hue}, ${100 * rd}%, ${85 * rd}%)`;
+            this.ctx.shadowBlur = 4;
             this.drawObject(car, color, 4);
         }
 
-        if(!isSpectator && !state.cars[id].ready) {
-            const car = state.cars[id]
-
-            this.ctx.fillStyle = `hsl(${car.hue}, 100%, 90%)`;
-            this.ctx.shadowColor = `hsl(${car.hue}, 100%, 50%)`;
-            this.ctx.font = "bold 24px Share Tech Mono";
-
-            this.ctx.fillText("PRESS [ENTER] TO READY", 0, this.canvas.height * -.4);
+        if(!isSpectator && !car.ready) {
+            this.drawCenteredMessage("PRESS [ENTER] TO READY", car.hue);
         }
 
         if(isSpectator) {
-            this.ctx.fillStyle = `hsl(0, 0%, 90%)`;
-            this.ctx.shadowColor = `hsl(0, 0%, 50%)`;
-            this.ctx.font = "bold 24px Share Tech Mono";
-
-            this.ctx.fillText("SPECTATING", 0, this.canvas.height * -.4);
+            this.drawCenteredMessage("SPECTATING");
         }
+    }
+
+    drawCountDown(freezeTime) {
+        const x = 1 - (freezeTime % 1);
+        const lerp = 0.6031746 + 3.358466*x - 9.236111*x*x + 10.87963*x*x*x - 5.208333*x*x*x*x;
+
+        this.ctx.strokeStyle = `hsl(0, 0%, 70%)`;
+        this.ctx.font = `bold ${lerp * 200}px Share Tech Mono`;
+        this.ctx.textAlign = "center";
+        this.ctx.textBaseline = "middle";
+        this.ctx.lineWidth = 1;
+
+        let count = Math.floor(freezeTime);
+
+        if(count == 0)
+            count = "GO!";
+
+        if(count > 3)
+            count = "";
+
+        this.ctx.globalAlpha = lerp;
+        this.ctx.strokeText(count, 0, -this.canvas.height / 6);
+        this.ctx.globalAlpha = 1;
     }
 
     drawRace(state, id, isSpectator, freezeTime) {
@@ -209,28 +270,17 @@ class Camera {
         this.ctx.rotate(this.angle + Math.PI/2);
         this.ctx.scale(1/this.scale, 1/this.scale);
         this.ctx.translate(0, -this.canvas.height * .17);
+
+        const car = state.cars[id];
+
+        this.drawLap(car);
         
         if(isSpectator) {
-            const car = state.cars[id];
-            this.ctx.fillStyle = `hsl(${car.hue}, ${100}%, ${90}%)`;
-            this.ctx.shadowColor = `hsl(${car.hue}, ${100}%, ${50}%)`;
-            this.ctx.font = "bold 24px Share Tech Mono";
-
-            this.ctx.fillText(`SPECTATING: CAR ${parseInt(id) + 1}`, 0, this.canvas.height * -.4);
+            this.drawSpectatorMessage(id);
         }
 
         if(freezeTime > 0) {
-            const car = state.cars[id];
-
-            this.ctx.strokeStyle = `hsl(${car.hue}, ${100}%, ${90}%)`;
-            this.ctx.shadowColor = `hsl(${car.hue}, ${100}%, ${50}%)`;
-            this.ctx.font = "bold 240px Share Tech Mono";
-            this.ctx.lineWidth = 1;
-            this.ctx.globalAlpha = freezeTime % 1;
-
-            this.ctx.strokeText(Math.ceil(freezeTime), 0, -this.canvas.height / 6);
-            
-            this.ctx.globalAlpha = 1;
+            this.drawCountDown(freezeTime);
         }
     }
 
@@ -241,7 +291,6 @@ class Camera {
         this.ctx.fillRect(-this.canvas.width * .5, -this.canvas.height * .5, this.canvas.width, this.canvas.height);
 
         this.ctx.globalCompositeOperation = "lighter";
-        this.ctx.shadowBlur = 4;
 
         if(state.scene == "lobby") {
             this.drawLobby(state, id, isSpectator);

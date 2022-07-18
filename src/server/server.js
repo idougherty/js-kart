@@ -50,7 +50,10 @@ async function processMessage(buffer) {
     if(message.packets.ping) {
         updateLatency(this, message.packets.ping.timestamp);
     } else if(message.packets.inputs) {
-        // console.log(game.tick - message.tick);
+        // ensure all late inputs are still processed
+        if(game.tick >= message.tick)
+            message.tick = game.tick + 1;
+
         util.setBuffer(this.inputBuffer, message.tick, message);
     }
 }
@@ -137,8 +140,6 @@ var timer = new util.interval(16, () => {
     while(game.tick < curTick) {
         for(const socket of wss.clients) {
             let message = util.getBuffer(socket.inputBuffer, game.tick);
-
-            // console.log("inputs", message);
 
             if(message && message.tick == game.tick) {
                 handleInputs(socket, message.packets.inputs);

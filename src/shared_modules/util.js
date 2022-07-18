@@ -2,6 +2,7 @@ this.CANVAS_WIDTH = 480;
 this.CANVAS_HEIGHT = 720;
 this.BUFFER_SIZE = 1024
 this.MAX_PLAYERS = 5;
+this.NUM_LAPS = 3;
 
 this.getTime = () => {
     let d = new Date();
