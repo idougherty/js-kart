@@ -8,9 +8,9 @@ module.exports = [
         target: 'node',
         name: 'server',
         mode: 'development',
-        entry: './src/server/index.js',
+        entry: './src/server/server.js',
         output: {
-            filename: 'main.js',
+            filename: 'server.js',
             path: path.resolve(__dirname, './dist/server'),
         },
         resolve: {
@@ -24,9 +24,9 @@ module.exports = [
         target: 'web',
         name: 'client',
         mode: 'development',
-        entry: './src/client/index.js',
+        entry: './src/client/client.js',
         output: {
-            filename: 'main.js',
+            filename: 'client.js',
             path: path.resolve(__dirname, './dist/client'),
         },
         resolve: {
