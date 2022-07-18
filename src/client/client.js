@@ -19,6 +19,8 @@ let camera = new Camera(canvas);
 let messageTypes = {};
 let messages = [];
 
+camera.drawLoading();
+
 socket.onerror = error => {
     camera.drawError(error);
 }

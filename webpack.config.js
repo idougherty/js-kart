@@ -15,7 +15,7 @@ module.exports = [
         },
         resolve: {
             fallback: {
-                "bufferutil": false, 
+                "bufferutil": require.resolve('bufferutil/'),
                 "utf-8-validate": false, 
             } 
         },
