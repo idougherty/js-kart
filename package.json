@@ -10,7 +10,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "webpack --config-name client && webpack --config-name server",
-    "dev": "concurrently --kill-others \"nodemon ./src/server/index.js\" \"npx webpack serve --config-name client\""
+    "dev": "concurrently --kill-others \"nodemon ./src/server/index.js\" \"npx webpack serve --config-name client\"",
+    "start": "node ./dist/server/index.js"
   },
   "author": "Ian Dougherty",
   "license": "ISC",
