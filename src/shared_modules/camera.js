@@ -85,8 +85,7 @@ class Camera {
         this.ctx.textAlign = "center";
         this.ctx.textBaseline = "middle";
 
-        this.ctx.fillText('Connecting...', 0, -20);
-        this.ctx.fillText(error.target.url, 0, 20);
+        this.ctx.fillText('Connecting...', 0, 0);
     }
 
     drawWalls(walls) {
