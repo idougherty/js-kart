@@ -1,9 +1,9 @@
 const avsc = require('../shared_modules/serialize')
 const util = require('../shared_modules/util');
-const ServerHandler = require('./serverHandler');
+const Game = require('./game');
 const WebSocket = require("ws");
 
-let game = new ServerHandler();
+let game = new Game();
 
 const PORT = process.env.PORT || 8181;
 wss = new WebSocket.Server({ port: PORT });

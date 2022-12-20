@@ -24,9 +24,9 @@ module.exports = [
         target: 'web',
         name: 'client',
         mode: 'development',
-        entry: './src/client/client.js',
+        entry: './src/client/index.js',
         output: {
-            filename: 'client.js',
+            filename: 'index.js',
             path: path.resolve(__dirname, './dist/client'),
         },
         resolve: {
