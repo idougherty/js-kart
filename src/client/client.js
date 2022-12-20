@@ -200,6 +200,7 @@ function gameLoop() {
     if(rewind != game.tick)
         console.log(game.tick - rewind);
 
+    
     while(rewind < game.tick) {
         for(const [idx, cars] of Object.entries(game.state.cars)) {
             let bufferedCar = util.getBuffer(game.stateBuffer, rewind).cars[idx];
@@ -217,7 +218,7 @@ function gameLoop() {
 
     let lerp = game.lerpState(alpha);
     camera.draw(lerp, game.viewID, game.isSpectator, game.freezeTime);
-    camera.drawPing(Math.floor(game.latency * 16));
+    camera.drawPing(Math.floor(game.latency + game.delay));
 
     window.requestAnimationFrame(gameLoop);
 }

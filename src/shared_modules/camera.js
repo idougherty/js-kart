@@ -212,7 +212,7 @@ class Camera {
 
     drawPing(ping) {
         this.ctx.fillStyle = `hsl(0, 0%, 50%)`;
-        this.ctx.font = "bold 30px Share Tech Mono";
+        this.ctx.font = "bold 15px Share Tech Mono";
         this.ctx.textAlign = "left";
         this.ctx.textBaseline = "bottom";
         this.ctx.shadowBlur = 0;
