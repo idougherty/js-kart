@@ -97,15 +97,22 @@ function processTick(tick) {
         if(message.packets.static)
             game.processPacket(message.packets.static, 'static');
 
+        /*
+            For dynamic objects (the client's car), we want to check whether the client's 
+            simulation matches the server's truth. If the prediction doesn't match, rewind
+            the game state to the mismatched tick and simulate forward again.
+        */
         if(message.packets.dynamic) {
             game.processPacket(message.packets.dynamic, 'dynamic');
 
             const buffered = util.getBuffer(game.stateBuffer, message.tick);
             if(buffered && !game.isSpectator) {
                 if(game.comparePlayerStates(buffered.cars[game.id], message.packets.dynamic.cars[game.id])) {
+                    // Player state matches
                     rewind = game.tick;
                     auth_state = null;
                 } else {
+                    // Player state miscalculated, rewind to server's tick
                     rewind = message.tick;
                     auth_state = message.packets.dynamic.cars[game.id];
                 }
@@ -115,9 +122,9 @@ function processTick(tick) {
         }
     }
 
-    if(auth_state) {
+    // We only want to process a rewind event once per tick
+    if(auth_state)
         game.processPacket(auth_state, 'rewind');
-    }
 
     return rewind;
 }
@@ -188,9 +195,8 @@ function gameLoop() {
         
         game.update(dt);
         
-        if(game.state.scene == "race") {
+        if(game.state.scene == "race")
             camera.update(game.state.cars[game.viewID], dt);
-        }
 
         game.tick++;
     }
@@ -200,7 +206,6 @@ function gameLoop() {
     if(rewind != game.tick)
         console.log(game.tick - rewind);
 
-    
     while(rewind < game.tick) {
         for(const [idx, cars] of Object.entries(game.state.cars)) {
             let bufferedCar = util.getBuffer(game.stateBuffer, rewind).cars[idx];

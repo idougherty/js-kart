@@ -4,13 +4,14 @@ const PhysObject = PhysX.PhysObject;
 const PhysEnv = PhysX.PhysEnv;
 
 class Car extends PhysObject {
+    static POINTS = [new Vec2D(0, 1),
+        new Vec2D(0, 19),
+        new Vec2D(12, 22),
+        new Vec2D(40, 19),
+        new Vec2D(40, 1),
+        new Vec2D(12, -2),];
+
     constructor(pos, hue, material = null) {
-        const pts = [new Vec2D(0, 1),
-                     new Vec2D(0, 19),
-                     new Vec2D(12, 22),
-                     new Vec2D(40, 19),
-                     new Vec2D(40, 1),
-                     new Vec2D(12, -2),];
 
         if(!material) {
             material = {
@@ -21,7 +22,7 @@ class Car extends PhysObject {
             };
         }
 
-        super(pos, pts, material);
+        super(pos, Car.POINTS, material);
         this.moi *= 10;
         // this.masks = ['car-car'];
 

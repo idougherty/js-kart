@@ -58,6 +58,8 @@ class ClientHandler {
 
                 console.log("Client ID: " + this.id);
                 break;
+
+            // Set the client's car in the current state to history
             case 'rewind':
                 let A = this.state.cars[this.id];
                 let B = packet;
@@ -232,12 +234,17 @@ class ClientHandler {
             
             let obj = util.copyObj(a);
             
-            obj.pos.x = b.pos.x * alpha + a.pos.x * (1 - alpha);
-            obj.pos.y = b.pos.y * alpha + a.pos.y * (1 - alpha);
-            obj.vel.x = b.vel.x * alpha + a.vel.x * (1 - alpha);
-            obj.vel.y = b.vel.y * alpha + a.vel.y * (1 - alpha);
-            obj.angle = b.angle * alpha + a.angle * (1 - alpha);
-            obj.rotVel = b.rotVel * alpha + a.rotVel * (1 - alpha);
+            obj.pos.x = b.pos.x * (1 - alpha) + a.pos.x * alpha;
+            obj.pos.y = b.pos.y * (1 - alpha) + a.pos.y * alpha;
+            obj.vel.x = b.vel.x * (1 - alpha) + a.vel.x * alpha;
+            obj.vel.y = b.vel.y * (1 - alpha) + a.vel.y * alpha;
+            obj.angle = b.angle * (1 - alpha) + a.angle * alpha;
+            obj.rotVel = b.rotVel * (1 - alpha) + a.rotVel * alpha;
+
+            for(let i = 0; i < obj.points.length; i++) {
+                obj.points[i] = Vec2D.rotate({x: 0, y: 0}, Car.POINTS[i], obj.angle);
+                obj.points[i].add(obj.pos);
+            }
 
             lerp[i] = obj;
         }
