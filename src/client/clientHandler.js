@@ -16,7 +16,7 @@ class ClientHandler {
     constructor() {
         this.tick;
         this.confirmedTick;
-        this.delay = 16;     // built in delay to help smooth lag spikes
+        this.delay = 160;     // built in delay to help smooth lag spikes
         this.latency = 40;
 
         this.state = {
@@ -28,6 +28,7 @@ class ClientHandler {
         this.env = new PhysEnv(1);
 
         this.stateBuffer = [];
+        this.clientBuffer = [];
         this.inputBuffer = [];
         
         this.id;
@@ -253,31 +254,38 @@ class ClientHandler {
         newState.cars = {};
         
         for(const [idx, obj] of Object.entries(state.cars)) {
-            newState.cars[idx] = {
-                angle:  obj.angle,
-                rotVel: obj.rotVel,
-                lap:    obj.lap,
-                ready:  obj.ready,
-                pos: {
-                    x:  obj.pos.x,
-                    y:  obj.pos.y,
-                },
-                vel: {
-                    x:  obj.vel.x,
-                    y:  obj.vel.y,
-                },
-                inputs: {
-                    up: obj.inputs.up,
-                    down: obj.inputs.down,
-                    left: obj.inputs.left,
-                    right: obj.inputs.right,
-                    shift: obj.inputs.shift,
-                    enter: obj.inputs.enter,
-                }
-            };
+            if(idx == this.idx)
+                continue;
+
+            newState.cars[idx] = this.copyCarState(obj);
         }
 
         return newState;
+    }
+
+    copyCarState(car) {
+        return {
+            angle:  car.angle,
+            rotVel: car.rotVel,
+            lap:    car.lap,
+            ready:  car.ready,
+            pos: {
+                x:  car.pos.x,
+                y:  car.pos.y,
+            },
+            vel: {
+                x:  car.vel.x,
+                y:  car.vel.y,
+            },
+            inputs: {
+                up: car.inputs.up,
+                down: car.inputs.down,
+                left: car.inputs.left,
+                right: car.inputs.right,
+                shift: car.inputs.shift,
+                enter: car.inputs.enter,
+            }
+        };
     }
 
     comparePlayerStates(A, B) {
