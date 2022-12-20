@@ -4,8 +4,6 @@ const Camera = require('../shared_modules/camera');
 const avsc = require('../shared_modules/serialize.js');
 require('dotenv').config();
 
-// const HOST = "wss://js-kart.herokuapp.com/";
-// const HOST = "ws://localhost:8181";
 const HOST = process.env.HOST_URI;
 
 let socket = new WebSocket(HOST);
