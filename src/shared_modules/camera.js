@@ -221,7 +221,9 @@ class Camera {
         this.ctx.fillText(text, -this.canvas.width / 2 + 10, this.canvas.height / 2 - 10);
     }
 
-    drawLobby(state, id, isSpectator) {
+    drawLobby(state, client) {
+        const {id, isSpectator} = client;
+
         const car = state.cars[id];
 
         for(const wall of state.walls)
@@ -269,7 +271,9 @@ class Camera {
         this.ctx.globalAlpha = 1;
     }
 
-    drawRace(state, id, isSpectator, freezeTime) {
+    drawRace(state, client) {
+        const {id, isSpectator, freezeTime} = client;
+
         this.ctx.translate(0, this.canvas.height * .17);
         this.ctx.scale(this.scale, this.scale);
         this.ctx.rotate(-this.angle - Math.PI/2);
@@ -304,7 +308,7 @@ class Camera {
         }
     }
 
-    draw(state, id, isSpectator, freezeTime) {
+    draw(state, client) {
         this.ctx.globalCompositeOperation = "source-over";
         this.ctx.fillStyle = "#121212";
         
@@ -313,9 +317,9 @@ class Camera {
         this.ctx.globalCompositeOperation = "lighter";
 
         if(state.scene == "lobby") {
-            this.drawLobby(state, id, isSpectator);
+            this.drawLobby(state, client);
         } else {
-            this.drawRace(state, id, isSpectator, freezeTime);
+            this.drawRace(state, client);
         }
     }
 }
