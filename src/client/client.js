@@ -16,7 +16,7 @@ class Client {
     constructor() {
         this.tick;
         this.confirmedTick;
-        this.delay = 160;     // built in delay to help smooth lag spikes
+        this.delay = 30;     // built in delay to help smooth lag spikes
         this.latency = 40;
 
         this.state = {
@@ -28,7 +28,6 @@ class Client {
         this.env = new PhysEnv(1);
 
         this.stateBuffer = [];
-        this.clientBuffer = [];
         this.inputBuffer = [];
         
         this.id;
@@ -76,11 +75,13 @@ class Client {
                 
                 if(!A && B) {
                     this.state.cars[this.id] = new Car(B.pos, B.hue);
+                    this.state.cars[this.id].masks = ['car-car'];
                     this.env.addObject(this.state.cars[this.id]);
                 }
                 
                 this.updateCar(this.state.cars[this.id], B);
                 break;
+
             case 'dynamic':
                 for(let i = 0; i < util.MAX_PLAYERS; i++) {
                     let A = this.state.cars[i];
@@ -98,6 +99,7 @@ class Client {
                     
                     if(!A && B) {
                         this.state.cars[i] = new Car(B.pos, B.hue);
+                        this.state.cars[i].masks = ['car-car'];
                         this.env.addObject(this.state.cars[i]);
                     }
                     
@@ -105,6 +107,7 @@ class Client {
                 }
 
                 break;
+
             case 'static':
                 const changeScene = this.state.scene != packet.scene;    
 
@@ -162,18 +165,12 @@ class Client {
         console.log("RESET ENV");
         this.env.clearObjects();
 
-        for(const car of Object.values(this.state.cars)) {
+        for(const car of Object.values(this.state.cars))
             this.env.addObject(car);
-        }
 
-        // if(!this.isSpectator && this.state.cars[this.id])
-        //     this.env.addObject(this.state.cars[this.id]);
-
-        for(const border of this.state.walls) {
-            for(const wall of border) {
+        for(const border of this.state.walls)
+            for(const wall of border)
                 this.env.addObject(wall);
-            }
-        }
     }
 
     updateViewID() {

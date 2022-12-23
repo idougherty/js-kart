@@ -38,6 +38,7 @@ socket.onmessage = async event => {
 
     if(data.packets.ping) {
         client.latency = data.packets.ping.latency + client.delay;
+        client.tickLatency = Math.floor(client.latency / 16);
         socket.send(avsc.encode(data));
         return;
     }
@@ -192,26 +193,28 @@ function gameLoop() {
 
     let rewind = processTick(client.tick);
 
-    if(rewind != client.tick)
-        console.log(client.tick - rewind);
+    if(rewind < client.tick) {
+        // console.log(client.tick - rewind)
+        const rewindBuffer = client.copyDynamicState(client.state);
 
-    while(rewind < client.tick) {
-        for(const [idx, cars] of Object.entries(client.state.cars)) {
-            let bufferedCar = util.getBuffer(client.stateBuffer, rewind).cars[idx];
+        while(rewind < client.tick) {
+            const stateBuffer = util.getBuffer(client.stateBuffer, rewind);
+            client.state.cars[client.id].inputs = stateBuffer.cars[client.id].inputs;
             
-            if(bufferedCar)
-                cars.inputs = bufferedCar.inputs;
+            util.setBuffer(client.stateBuffer, rewind, client.copyDynamicState(client.state));
+
+            client.update(dt);
+
+            rewind++;
         }
-        
-        util.setBuffer(client.stateBuffer, rewind, client.copyDynamicState(client.state));
 
-        client.update(dt);
-
-        rewind++;
+        for(const idx of Object.keys(client.state.cars))
+            if(idx != client.id)
+                client.updateCar(client.state.cars[idx], rewindBuffer.cars[idx]);
     }
 
     let lerp = client.lerpState(alpha);
-    
+
     if(client.state.scene == "race")
         camera.update(lerp.cars[client.viewID], dt);
 

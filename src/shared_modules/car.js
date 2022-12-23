@@ -1,7 +1,6 @@
 const PhysX = require('./physx');
 const Vec2D = PhysX.Vec2D;
 const PhysObject = PhysX.PhysObject;
-const PhysEnv = PhysX.PhysEnv;
 
 class Car extends PhysObject {
     static POINTS = [new Vec2D(0, 1),
@@ -24,7 +23,6 @@ class Car extends PhysObject {
 
         super(pos, Car.POINTS, material);
         this.moi *= 10;
-        // this.masks = ['car-car'];
 
         this.inputs = {
             left: false,
