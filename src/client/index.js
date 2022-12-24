@@ -5,6 +5,7 @@ const avsc = require('../shared_modules/serialize.js');
 require('dotenv').config();
 
 const HOST = process.env.HOST_URI;
+console.log(HOST);
 
 let socket = new WebSocket(HOST);
 

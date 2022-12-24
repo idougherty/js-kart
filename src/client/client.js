@@ -16,7 +16,7 @@ class Client {
     constructor() {
         this.tick;
         this.confirmedTick;
-        this.delay = 30;     // built in delay to help smooth lag spikes
+        this.delay = 8;     // built in delay to help smooth lag spikes
         this.latency = 40;
 
         this.state = {
