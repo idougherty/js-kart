@@ -4,7 +4,8 @@ const Camera = require('../shared_modules/camera');
 const avsc = require('../shared_modules/serialize.js');
 require('dotenv').config();
 
-const HOST = process.env.HOST_URI;
+const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+const HOST = protocol + "://" + process.env.HOST_URI;
 console.log(HOST);
 
 let socket = new WebSocket(HOST);
@@ -39,7 +40,10 @@ socket.onmessage = async event => {
 
     if(data.packets.ping) {
         client.latency = data.packets.ping.latency + client.delay;
-        client.tickLatency = Math.floor(client.latency / 16);
+        client.clockOffset = data.packets.ping.clockOffset;
+
+        data.packets.ping.cTimestamp = util.getTime();
+        
         socket.send(avsc.encode(data));
         return;
     }
@@ -169,6 +173,9 @@ function waitForID() {
     window.requestAnimationFrame(waitForID);
 }
 
+// TODO: see if you can get away with only storing the clients
+// position in the statebuffer. Also, there is still some weird 
+// jittering with other players 
 function gameLoop() {
     const dt = .016;
     const curTick = Math.floor(client.getTick());
@@ -195,15 +202,12 @@ function gameLoop() {
     let rewind = processTick(client.tick);
 
     if(rewind < client.tick) {
-        // console.log(client.tick - rewind)
         const rewindBuffer = client.copyDynamicState(client.state);
 
         while(rewind < client.tick) {
             const stateBuffer = util.getBuffer(client.stateBuffer, rewind);
             client.state.cars[client.id].inputs = stateBuffer.cars[client.id].inputs;
             
-            util.setBuffer(client.stateBuffer, rewind, client.copyDynamicState(client.state));
-
             client.update(dt);
 
             rewind++;
@@ -220,7 +224,7 @@ function gameLoop() {
         camera.update(lerp.cars[client.viewID], dt);
 
     camera.draw(lerp, client);
-    camera.drawPing(Math.floor(client.latency * 100)/100);
+    camera.drawPing(Math.floor(client.clockOffset));
 
     window.requestAnimationFrame(gameLoop);
 }

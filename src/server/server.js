@@ -32,9 +32,11 @@ function processConnection(socket) {
     console.log(`New client connected: ID - ${id}`);
 }
 
-function updateLatency(socket, timestamp) {
+function updateLatency(socket, packet) {
     const BUFFER_SIZE = 10;
-    let latency = (util.getTime() - timestamp) / 2;
+
+    const curTime = util.getTime();
+    const latency = (curTime - packet.sTimestamp) / 2;
 
     socket.pingBuffer.push(latency);
 
@@ -42,15 +44,18 @@ function updateLatency(socket, timestamp) {
         socket.pingBuffer.splice(0, 1);
 
     socket.latency = 0;
-    
-    socket.pingBuffer.forEach(val => socket.latency += val / socket.pingBuffer.length);
+    socket.pingBuffer.forEach(val => socket.latency += val);
+    socket.latency /= socket.pingBuffer.length;
+
+    // offset measured as "how far the client is ahead of the server"
+    socket.clockOffset = curTime - packet.cTimestamp + Math.floor(latency);
 }
 
 async function processMessage(buffer) {
     let message = await avsc.decode(buffer);
     
     if(message.packets.ping) {
-        updateLatency(this, message.packets.ping.timestamp);
+        updateLatency(this, message.packets.ping);
     } else if(message.packets.inputs) {
         // ensure all late inputs are still processed
         if(game.tick >= message.tick)
@@ -92,7 +97,9 @@ function broadcast(data, pingFlag) {
 
     if(pingFlag) {
         data.packets.ping = {
-            timestamp: util.getTime(),
+            sTimestamp: util.getTime(),
+            cTimestamp: null,
+            clockOffset: null,
             latency: null,
         };
     } else {
@@ -102,6 +109,7 @@ function broadcast(data, pingFlag) {
     for(const client of wss.clients) {
         if(pingFlag) {
             data.packets.ping.latency = client.latency;
+            data.packets.ping.clockOffset = client.clockOffset;
             buffer = avsc.encode(data);
         }
 
@@ -116,10 +124,10 @@ function addPlayer(socket, id) {
 
     socket.latency = 100;
     socket.pingBuffer = [100];
+    socket.clockOffset = 0;
 
-    if(id < util.MAX_PLAYERS) {
+    if(id < util.MAX_PLAYERS)
         socket.car = game.createCar(id);
-    }
 
     let bundle = {
         packets: {},

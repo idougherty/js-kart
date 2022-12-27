@@ -16,8 +16,10 @@ class Client {
     constructor() {
         this.tick;
         this.confirmedTick;
-        this.delay = 8;     // built in delay to help smooth lag spikes
-        this.latency = 40;
+        this.delay = 80;     // built in latency buffer to help smooth lag spikes
+        this.latency = 100;
+        this.clockOffset = 0;
+        this.offsetBuffer = [];
 
         this.state = {
             scene: null,
@@ -28,7 +30,6 @@ class Client {
         this.env = new PhysEnv(1);
 
         this.stateBuffer = [];
-        this.inputBuffer = [];
         
         this.id;
         this.viewID;
@@ -46,7 +47,7 @@ class Client {
     }
 
     getTick() {
-        return (util.getTime() + this.latency) / 16;
+        return (util.getTime() + this.latency - this.clockOffset) / 16;
     }
 
     processPacket(packet, event) {
