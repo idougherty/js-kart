@@ -162,7 +162,7 @@ const BUNDLE_TYPE = avro.Type.forSchema({
                             fields: [
                                 { name: 'sTimestamp', type: ['long'] },
                                 { name: 'cTimestamp', type: ['long', 'null'] },
-                                { name: 'clockOffset', type: ['long'] },
+                                { name: 'clockOffset', type: ['double'] },
                                 { name: 'latency', type: ['double'] },
                             ]
                         }]

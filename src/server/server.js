@@ -35,20 +35,27 @@ function processConnection(socket) {
 function updateLatency(socket, packet) {
     const BUFFER_SIZE = 10;
 
+    // offset measured as "how far the client is ahead of the server"
     const curTime = util.getTime();
     const latency = (curTime - packet.sTimestamp) / 2;
+    const clockOffset = curTime - (packet.cTimestamp + latency);
 
     socket.pingBuffer.push(latency);
+    socket.offsetBuffer.push(clockOffset);
 
     if(socket.pingBuffer.length > BUFFER_SIZE)
         socket.pingBuffer.splice(0, 1);
+
+    if(socket.offsetBuffer.length > BUFFER_SIZE)
+        socket.offsetBuffer.splice(0, 1);
 
     socket.latency = 0;
     socket.pingBuffer.forEach(val => socket.latency += val);
     socket.latency /= socket.pingBuffer.length;
 
-    // offset measured as "how far the client is ahead of the server"
-    socket.clockOffset = curTime - packet.cTimestamp + Math.floor(latency);
+    socket.clockOffset = 0;
+    socket.offsetBuffer.forEach(val => socket.clockOffset += val);
+    socket.clockOffset /= socket.offsetBuffer.length;
 }
 
 async function processMessage(buffer) {
@@ -125,6 +132,7 @@ function addPlayer(socket, id) {
     socket.latency = 100;
     socket.pingBuffer = [100];
     socket.clockOffset = 0;
+    socket.offsetBuffer = [0];
 
     if(id < util.MAX_PLAYERS)
         socket.car = game.createCar(id);
